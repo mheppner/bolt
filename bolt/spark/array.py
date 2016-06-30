@@ -16,16 +16,16 @@ class BoltArraySpark(BoltArray):
         '_shape': None,
         '_split': None,
         '_dtype': None,
-        '_ordered': True
+        '_sorted': True
     }
 
-    def __init__(self, rdd, shape=None, split=None, dtype=None, ordered=True):
+    def __init__(self, rdd, shape=None, split=None, dtype=None, sorted=True):
         self._rdd = rdd
         self._shape = shape
         self._split = split
         self._dtype = dtype
         self._mode = 'spark'
-        self._ordered = ordered
+        self._sorted = sorted
 
     @property
     def _constructor(self):
@@ -57,7 +57,7 @@ class BoltArraySpark(BoltArray):
         """
 
         rdd = self._rdd.repartition(npartitions)
-        return self._constructor(rdd, ordered=False).__finalize__(self)
+        return self._constructor(rdd, sorted=False).__finalize__(self)
 
     def stack(self, size=None):
         """
@@ -119,7 +119,7 @@ class BoltArraySpark(BoltArray):
         Return the first element of an array
         """
         from bolt.local.array import BoltArrayLocal
-        rdd = self._rdd if self._ordered else self._rdd.sortByKey()
+        rdd = self._rdd if self._sorted else self._rdd.sortByKey()
         return BoltArrayLocal(rdd.values().first())
 
     def map(self, func, axis=(0,), value_shape=None, dtype=None, with_keys=False):
@@ -475,7 +475,7 @@ class BoltArraySpark(BoltArray):
         shape = tuple([x + y if i == axis else x
                       for i, (x, y) in enumerate(zip(self.shape, arry.shape))])
 
-        return self._constructor(rdd, shape=shape, ordered=False).__finalize__(self)
+        return self._constructor(rdd, shape=shape, sorted=False).__finalize__(self)
 
     def _getbasic(self, index):
         """
@@ -661,13 +661,13 @@ class BoltArraySpark(BoltArray):
                                       "with advanced indexing (lists, tuples, and ndarrays), "
                                       "can only have a single advanced index")
 
-        # if any key indices used negative steps, records are no longer ordered
-        if self._ordered is False or any([isinstance(s, slice) and s.step<0 for s in index[:self.split]]):
-            ordered = False
+        # if any key indices used negative steps, records are no longer sorted
+        if self._sorted is False or any([isinstance(s, slice) and s.step<0 for s in index[:self.split]]):
+            sorted = False
         else:
-            ordered = True
+            sorted = True
 
-        result = self._constructor(rdd, shape=shape, split=split, ordered=ordered).__finalize__(self)
+        result = self._constructor(rdd, shape=shape, split=split, sorted=sorted).__finalize__(self)
 
         # squeeze out int dimensions (and squeeze to singletons if all ints)
         if len(int_locs) == self.ndim:
@@ -945,12 +945,29 @@ class BoltArraySpark(BoltArray):
         rdd = self._rdd.mapValues(lambda v: v.clip(min=min, max=max))
         return self._constructor(rdd).__finalize__(self)
 
+    def sort(self):
+        """
+        Sort the underlying RDD by key.
+        """
+        if not self.sorted:
+            rdd = self._rdd.sortByKey()
+            return self._constructor(rdd).__finalize__(self)
+        else:
+            return self
+
     @property
     def shape(self):
         """
         Size of each dimension.
         """
         return self._shape
+
+    @property
+    def sorted(self):
+        """
+        Size of each dimension.
+        """
+        return self._sorted
 
     @property
     def size(self):
@@ -1010,7 +1027,7 @@ class BoltArraySpark(BoltArray):
 
         Will likely cause memory problems for large objects.
         """
-        rdd = self._rdd if self._ordered else self._rdd.sortByKey()
+        rdd = self._rdd if self._sorted else self._rdd.sortByKey()
         x = rdd.values().collect()
         return asarray(x).reshape(self.shape)
 

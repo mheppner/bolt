@@ -193,7 +193,7 @@ class ChunkedArray(object):
             newshape = self.shape
 
         return BoltArraySpark(rdd, shape=newshape, split=self._split,
-                              dtype=self.dtype, ordered=False)
+                              dtype=self.dtype, sorted=False)
 
     def keys_to_values(self, axes, size=None):
         """
@@ -406,7 +406,7 @@ class ChunkedArray(object):
         nchunks = self.getnumber(self.plan, self.vshape)
         newshape = tuple([int(s) for s in r_[self.kshape, nchunks]])
         newsplit = len(self.shape)
-        return BoltArraySpark(rdd, shape=newshape, split=newsplit, ordered=False, dtype="object")
+        return BoltArraySpark(rdd, shape=newshape, split=newsplit, sorted=False, dtype="object")
 
     def getplan(self, size="150", axes=None, padding=None):
         """

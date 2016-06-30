@@ -60,9 +60,9 @@ def test_cache(sc):
 def test_repartition(sc):
     x = arange(2 * 3).reshape((2, 3))
     b = array(x, sc)
-    assert b._ordered
+    assert b._sorted
     b = b.repartition(10)
-    assert not b._ordered
+    assert not b._sorted
     assert b._rdd.getNumPartitions() == 10
 
 def test_concatenate(sc):
