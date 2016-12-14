@@ -46,6 +46,19 @@ class BoltArraySpark(BoltArray):
         """
         self._rdd.unpersist()
 
+    def repartition(self, npartitions):
+        """
+        Repartitions the underlying RDD
+
+        Parameters
+        ----------
+        npartitions : int
+            Number of partitions to repartion the underlying RDD to
+        """
+
+        rdd = self._rdd.repartition(npartitions)
+        return self._constructor(rdd, ordered=False).__finalize__(self)
+
     def stack(self, size=None):
         """
         Aggregates records of a distributed array.
@@ -106,7 +119,8 @@ class BoltArraySpark(BoltArray):
         Return the first element of an array
         """
         from bolt.local.array import BoltArrayLocal
-        return BoltArrayLocal(self._rdd.values().first())
+        rdd = self._rdd if self._ordered else self._rdd.sortByKey()
+        return BoltArrayLocal(rdd.values().first())
 
     def map(self, func, axis=(0,), value_shape=None, dtype=None, with_keys=False):
         """
@@ -757,13 +771,13 @@ class BoltArraySpark(BoltArray):
 
         Chunking breaks arrays into subarrays, using an specified
         size of chunks along each value dimension. Can alternatively
-        specify an average chunk byte size (in megabytes) and the size of
+        specify an average chunk byte size (in kilobytes) and the size of
         chunks (as ints) will be computed automatically.
 
         Parameters
         ----------
         size : tuple, int, or str, optional, default = "150"
-            A string giving the size in megabytes, or a tuple with the size
+            A string giving the size in kilobytes, or a tuple with the size
             of chunks along each dimension.
 
         axis : int or tuple, optional, default = None
@@ -809,7 +823,7 @@ class BoltArraySpark(BoltArray):
             Axes from values to move to keys
 
         size : tuple or int, optional, default = "150"
-            Can either provide a string giving the size in megabytes,
+            Can either provide a string giving the size in kilobytes,
             or a tuple with the number of chunks along each
             value dimension being moved
 
@@ -831,9 +845,8 @@ class BoltArraySpark(BoltArray):
 
         from bolt.spark.chunk import ChunkedArray
 
-        c = ChunkedArray(self._rdd, shape=self._shape, split=self._split, dtype=self._dtype)
+        chunks = self.chunk(size)
 
-        chunks = c._chunk(size, axis=vaxes)
         swapped = chunks.keys_to_values(kaxes).values_to_keys([v+len(kaxes) for v in vaxes])
         barray = swapped.unchunk()
 
